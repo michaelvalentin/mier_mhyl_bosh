@@ -39,6 +39,15 @@ char *gethostname(char *hostname)
 int executeshellcmd (Shellcmd *shellcmd)
 {
   printshellcmd(shellcmd);
+  
+  int pid;
+  Cmd *cmdlist = shellcmd->the_cmds;
+  char **cmd = cmdlist->cmd;
+  char *args[1]; 
+  pid = fork();
+  args[0] = *cmd;
+  sleep(2);
+  execv(*cmd, args);
 
   return 0;
 }
@@ -56,7 +65,7 @@ int main(int argc, char* argv[]) {
 
     /* parse commands until exit or ctrl-c */
     while (!terminate) {
-      printf("%s:#", hostname);
+      printf("%s:# ", hostname);
       if (cmdline = readline("")) {
         if(*cmdline) {
           add_history(cmdline);
