@@ -21,6 +21,8 @@
 /* --- use the /proc filesystem to obtain the hostname --- */
 char *gethostname(char *hostname)
 {
+  /*TODO: Should we clear the hostname first? */
+  /*TODO: Can the hostname change? Should we read it every time? */
   FILE* file = fopen("/proc/sys/kernel/hostname","r");
   if(file == NULL){
     return NULL;
