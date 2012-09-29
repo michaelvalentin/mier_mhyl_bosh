@@ -13,7 +13,6 @@
 #include <readline/history.h>
 #include "parser.h"
 #include "print.h"
-#include <netdb.h>
 
 /* --- symbolic constants --- */
 #define HOSTNAMEMAX 100
@@ -32,24 +31,36 @@ char *gethostname(char *hostname)
     ch = getc(file);
     length++;
   }
+  fclose(file);
   return hostname;
 }
 
 /* --- execute a shell command --- */
-int executeshellcmd (Shellcmd *shellcmd)
-{
+int executeshellcmd (Shellcmd *shellcmd){
   printshellcmd(shellcmd);
-  
-  int pid;
+
   Cmd *cmdlist = shellcmd->the_cmds;
   char **cmd = cmdlist->cmd;
-  char *args[1]; 
-  pid = fork();
-  args[0] = *cmd;
-  sleep(2);
-  execv(*cmd, args);
+  char *args[10];
+  int i = 0;
+  while(*cmd != NULL){
+    args[i]=*cmd++;
+    i++;
+  }
+  args[i] = NULL;
+  if(strcmp(args[0],"exit")==0)
+    return 1;
 
-  return 0;
+  pid_t pid = fork();
+  switch(pid){
+    case -1: printf("Failed to fork\n");
+             return 0;
+    case 0: if(execvp(args[0],args)==-1)
+              printf("Command not found\n");
+            return 0;
+    default: waitpid(pid,NULL,0 ); 
+             return 0;
+  }
 }
 
 /* --- main loop of the simple shell --- */
@@ -65,8 +76,8 @@ int main(int argc, char* argv[]) {
 
     /* parse commands until exit or ctrl-c */
     while (!terminate) {
-      printf("%s:# ", hostname);
-      if (cmdline = readline("")) {
+      printf("%s", hostname);
+      if (cmdline = readline(":# ")) {
         if(*cmdline) {
           add_history(cmdline);
           if (parsecommand(cmdline, &shellcmd)) {
@@ -77,8 +88,7 @@ int main(int argc, char* argv[]) {
       } else terminate = 1;
     }
     printf("Exiting bosh.\n");
-  }    
-
+  }
   return EXIT_SUCCESS;
 }
 
