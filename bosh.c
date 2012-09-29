@@ -13,6 +13,7 @@
 #include <readline/history.h>
 #include "parser.h"
 #include "print.h"
+#include <fcntl.h>
 
 /* --- symbolic constants --- */
 #define HOSTNAMEMAX 100
@@ -41,24 +42,40 @@ int executeshellcmd (Shellcmd *shellcmd){
 
   Cmd *cmdlist = shellcmd->the_cmds;
   char **cmd = cmdlist->cmd;
+  //Need to find a dynamic way to detect array size
   char *args[10];
   int i = 0;
-  while(*cmd != NULL){
+  while(*cmd != NULL){                            //Adds the command and all arguments tot the args array
     args[i]=*cmd++;
     i++;
   }
   args[i] = NULL;
-  if(strcmp(args[0],"exit")==0)
+
+  if(strcmp(args[0],"exit")==0)                   //If cmd is equal to "exit" -> terminate shell
     return 1;
 
-  pid_t pid = fork();
+  pid_t pid = fork();                             //Make child process
   switch(pid){
-    case -1: printf("Failed to fork\n");
+    case -1: printf("Failed to fork\n");          //If fork failed
              return 0;
-    case 0: if(execvp(args[0],args)==-1)
+    case 0: if(shellcmd -> rd_stdin){             //If it is a child process
+              int fd = open(shellcmd->rd_stdin, O_RDONLY);
+              dup2(fd,0);
+              close(fd);
+            }
+
+            if(shellcmd -> rd_stdout){
+              int fd = open(shellcmd->rd_stdout, O_RDWR|O_CREAT,0666);
+              dup2(fd,1);
+              close(fd);
+            }
+
+            if(execvp(args[0],args)==-1)
               printf("Command not found\n");
+
             return 0;
-    default: waitpid(pid,NULL,0 ); 
+    default: if((shellcmd -> background) = 1)     //If it is a parant process
+               waitpid(pid,NULL,0 );              //Wait for child process to finish
              return 0;
   }
 }
