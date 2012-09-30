@@ -56,7 +56,7 @@ int executeshellcmd (Shellcmd *shellcmd){
   
   //Reset i
   i = 0;
-  pid_t = pid;
+  pid_t pid;
   
   while(cmdlist != NULL){
      i++;
@@ -71,7 +71,7 @@ int executeshellcmd (Shellcmd *shellcmd){
      pid = fork();
   
      switch(pid){
-       case -1 : printf("Failed to fork.") return 0;
+       case -1 : printf("Failed to fork."); return 0;
        case 0 : //Child process
          //Check if this is the first command
          if(i != 1){
@@ -97,7 +97,7 @@ int executeshellcmd (Shellcmd *shellcmd){
             }
          }
          
-         if(execvp() == -1){
+         if(execvp(cmd[0],cmd) == -1){
             printf("Command not found\n");
          }
      }  
