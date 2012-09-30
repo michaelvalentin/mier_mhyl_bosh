@@ -53,8 +53,9 @@ int executeshellcmd (Shellcmd *shellcmd){
   }
   args[i] = NULL;
 
-  if(strcmp(args[0],"exit")==0)                   //If cmd is equal to "exit" -> terminate shell
+  if(strcmp(args[0],"exit")==0){                   //If cmd is equal to "exit" -> terminate shell
     return 1;
+  }
 
   pid_t pid = fork();                             //Make child process
   switch(pid){
@@ -72,12 +73,13 @@ int executeshellcmd (Shellcmd *shellcmd){
               close(fd);
             }
 
-            if(execvp(args[0],args)==-1)
+            if(execvp(args[0],args) == -1){
               printf("Command not found\n");
-
+            }
             return 0;
-    default: if((shellcmd -> background) = 1)     //If it is a parant process
-               waitpid(pid,NULL,0 );              //Wait for child process to finish
+    default: if((shellcmd -> background) == 0){       
+               waitpid(pid,NULL,0 );                //If not a background-process, wait for child process to finish
+             }
              return 0;
   }
 }
