@@ -125,15 +125,17 @@ int executeshellcmd (Shellcmd *shellcmd){
          if(execvp(cmd[0],cmd) == -1){
             printf("Command not found\n");
          }
-     }  
-  }
-  
-  if(child_pids[i]){
+         return 0;
+     } 
+     if(child_pids[i]){
      if((shellcmd -> background) == 0){       
        waitpid(child_pids[i],NULL,0); 
      }
      return 0;
   }
+  }
+  
+  
   
   return 0;
 }
