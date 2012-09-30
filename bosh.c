@@ -14,15 +14,17 @@
 #include "parser.h"
 #include "print.h"
 #include <fcntl.h>
+#include <signal.h>
 
 /* --- symbolic constants --- */
 #define HOSTNAMEMAX 100
+#define MAX_CMDS 10
+
+pid_t child_pids[MAX_CMDS];
 
 /* --- use the /proc filesystem to obtain the hostname --- */
 char *gethostname(char *hostname)
 {
-  /*TODO: Should we clear the hostname first? */
-  /*TODO: Can the hostname change? Should we read it every time? */
   FILE* file = fopen("/proc/sys/kernel/hostname","r");
   if(file == NULL){
     return NULL;
@@ -36,6 +38,10 @@ char *gethostname(char *hostname)
   }
   fclose(file);
   return hostname;
+}
+
+void InteruptHandler(int signal){
+  
 }
 
 /* --- execute a shell command --- */
@@ -58,7 +64,6 @@ int executeshellcmd (Shellcmd *shellcmd){
   i = 0;
   
   //Setup variables
-  pid_t pid;
   int pipe_fd[cmd_count][2];
 
   while(cmdlist != NULL){
@@ -70,17 +75,27 @@ int executeshellcmd (Shellcmd *shellcmd){
      if(strcmp(cmd[0],"exit")==0){
        return 1;
      }
-     
-     pid = fork();
+
+     if(i != cmd_count){
+       if(pipe(pipe_fd[i]) < 0){ //Make a new pipe;
+         printf("Pipe failed\n");
+         return 0;
+       }else{
+         printf("PIPPING SUCCESS %d \n",i);
+       }
+     }
+
+     child_pids[i] = fork();
   
-     switch(pid){
+     switch(child_pids[i]){
        case -1 : printf("ERROR: Failed to fork."); return 0;
        case 0 : //Child process
+         printf("Reaching child process for #%s#\n",cmd[0]);
          //Check if this is the first command
          if(i != 1){
            //If not first, set StdInput to be the pipe of before
-           dup2(pipe_fd[i-1][1],0); //Use the pipe from before. Set command input to pipe output.
-           close(pipe_fd[i-1][1]); //Close the pipe output.
+           dup2(pipe_fd[i-1][0],1); //Use the pipe from before. Set command input to pipe output.
+           close(pipe_fd[i-1][0]); //Close the pipe output.
          }else{
            //If first (last command from left), set StdOutput to StdOutput file, if one is given
             if(shellcmd -> rd_stdout){
@@ -91,15 +106,12 @@ int executeshellcmd (Shellcmd *shellcmd){
 
          }
      
+         printf("Reaching2 child process for #%s#\n",cmd[0]);
          //Check if this is the last command
          if(i != cmd_count){
-            //If not last, set StdOut to a new pipe  
-            if(pipe(pipe_fd[i]) < 0){ //Make a new pipe
-              printf("Pipe failed\n");
-              return 0;
-            }
-            dup2(pipe_fd[i][0],1); //Set pipe input to command output
-            close(pipe_fd[i][0]); //Close pipe input
+            //If not last, set StdOut to the newly made pipe  
+            dup2(pipe_fd[i][1],0); //Set pipe input to command output
+            close(pipe_fd[i][1]); //Close pipe input
          }else{
            //If last (first command from left), set StdInput to StdInput file, if one is given
            if(shellcmd -> rd_stdin){
@@ -108,22 +120,17 @@ int executeshellcmd (Shellcmd *shellcmd){
              close(fd);
            }
          }
-         
-         int j = 0;
-         for(j=0; j<cmd_count; j++){
-           close(pipe_fd[j][0]);
-           close(pipe_fd[j][1]);
-         }
 
+         printf("RUNNING COMMAND: %s\n",cmd[0]);
          if(execvp(cmd[0],cmd) == -1){
             printf("Command not found\n");
          }
      }  
   }
   
-  if(pid){
+  if(child_pids[i]){
      if((shellcmd -> background) == 0){       
-       waitpid(pid,NULL,0); 
+       waitpid(child_pids[i],NULL,0); 
      }
      return 0;
   }
@@ -143,6 +150,7 @@ int main(int argc, char* argv[]) {
   if (gethostname(hostname)) {
 
     /* parse commands until exit or ctrl-c */
+    signal(SIGINT, InteruptHandler);
     while (!terminate) {
       printf("%s", hostname);
       if (cmdline = readline(":# ")) {
