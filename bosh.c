@@ -59,8 +59,8 @@ int executeshellcmd (Shellcmd *shellcmd){
   
   //Setup variables
   pid_t pid;
-  int pipe_fd[2];
-  
+  int pipe_fd[cmd_count][2];
+
   while(cmdlist != NULL){
      i++;
      char **cmd = cmdlist->cmd;
@@ -74,37 +74,47 @@ int executeshellcmd (Shellcmd *shellcmd){
      pid = fork();
   
      switch(pid){
-       case -1 : printf("Failed to fork."); return 0;
+       case -1 : printf("ERROR: Failed to fork."); return 0;
        case 0 : //Child process
          //Check if this is the first command
          if(i != 1){
            //If not first, set StdInput to be the pipe of before
-           dup2(pipe_fd[1],0); //Use the pipe from before. Set command input to pipe output.
-           close(pipe_fd[1]); //Close the pipe output.
+           dup2(pipe_fd[i-1][1],0); //Use the pipe from before. Set command input to pipe output.
+           close(pipe_fd[i-1][1]); //Close the pipe output.
          }else{
-           //If first, set StdInput to StdInput file, if one is given
+           //If first (last command from left), set StdOutput to StdOutput file, if one is given
+            if(shellcmd -> rd_stdout){
+               int fd = open(shellcmd->rd_stdout, O_RDWR|O_CREAT,0666);
+               dup2(fd,1);
+               close(fd);
+            }
+
+         }
+     
+         //Check if this is the last command
+         if(i != cmd_count){
+            //If not last, set StdOut to a new pipe  
+            if(pipe(pipe_fd[i]) < 0){ //Make a new pipe
+              printf("Pipe failed\n");
+              return 0;
+            }
+            dup2(pipe_fd[i][0],1); //Set pipe input to command output
+            close(pipe_fd[i][0]); //Close pipe input
+         }else{
+           //If last (first command from left), set StdInput to StdInput file, if one is given
            if(shellcmd -> rd_stdin){
              int fd = open(shellcmd->rd_stdin, O_RDONLY);
              dup2(fd,0);
              close(fd);
            }
          }
-     
-         //Check if this is the last command
-         if(i != cmd_count){
-            //If not last, set StdOut to a new pipe  
-            pipe(pipe_fd); //Make a new pipe
-            dup2(pipe_fd[0],1); //Set pipe input to command output
-            close(pipe_fd[0]); //Close pipe input
-         }else{
-            //If last, set StdOutput to StdOutput file, if one is given
-            if(shellcmd -> rd_stdout){
-               int fd = open(shellcmd->rd_stdout, O_RDWR|O_CREAT,0666);
-               dup2(fd,1);
-               close(fd);
-            }
-         }
          
+         int j = 0;
+         for(j=0; j<cmd_count; j++){
+           close(pipe_fd[j][0]);
+           close(pipe_fd[j][1]);
+         }
+
          if(execvp(cmd[0],cmd) == -1){
             printf("Command not found\n");
          }
