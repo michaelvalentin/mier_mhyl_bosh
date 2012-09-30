@@ -58,7 +58,7 @@ int executeshellcmd (Shellcmd *shellcmd){
   i = 0;
   
   //Setup variables
-  pid_t = pid;
+  pid_t pid;
   int pipe_fd[2];
   
   while(cmdlist != NULL){
