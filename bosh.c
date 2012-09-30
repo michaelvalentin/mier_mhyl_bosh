@@ -41,47 +41,76 @@ char *gethostname(char *hostname)
 /* --- execute a shell command --- */
 int executeshellcmd (Shellcmd *shellcmd){
   printshellcmd(shellcmd);
-
+  
   Cmd *cmdlist = shellcmd->the_cmds;
-  char **cmd = cmdlist->cmd;
-  //Need to find a dynamic way to detect array size
-  char *args[10];
+  Cmd *cmdlist2 = shellcmd->the_cmds;
+  int cmd_count;
   int i = 0;
-  while(*cmd != NULL){                            //Adds the command and all arguments tot the args array
-    args[i]=*cmd++;
-    i++;
+  
+  //Find out the number of commands
+  while(cmdlist2 != NULL){
+     i++;
+     cmdlist2 = cmdlist2->next;
   }
-  args[i] = NULL;
-
-  if(strcmp(args[0],"exit")==0){                   //If cmd is equal to "exit" -> terminate shell
-    return 1;
-  }
-
-  pid_t pid = fork();                             //Make child process
-  switch(pid){
-    case -1: printf("Failed to fork\n");          //If fork failed
-             return 0;
-    case 0: if(shellcmd -> rd_stdin){             //If it is a child process
-              int fd = open(shellcmd->rd_stdin, O_RDONLY);
-              dup2(fd,0);
-              close(fd);
-            }
-
+  cmd_count = i;
+  
+  //Reset i
+  i = 0;
+  pid_t = pid;
+  
+  while(cmdlist != NULL){
+     i++;
+     char **cmd = cmdlist->cmd;
+     cmdlist = cmdlist->next;
+     
+     //Is this the exit command?
+     if(strcmp(cmd[0],"exit")==0){
+       return 1;
+     }
+     
+     pid = fork();
+  
+     switch(pid){
+       case -1 : printf("Failed to fork.") return 0;
+       case 0 : //Child process
+         //Check if this is the first command
+         if(i != 1){
+           //If not first, set StdInput to be the pipe of before
+         }else{
+           //If first, set StdInput to StdInput file, if one is given
+           if(shellcmd -> rd_stdin){
+             int fd = open(shellcmd->rd_stdin, O_RDONLY);
+             dup2(fd,0);
+             close(fd);
+           }
+         }
+     
+         //Check if this is the last command
+         if(i != cmd_count){
+            //If not last, set StdOut to a new pipe   
+         }else{
+            //If last, set StdOutput to StdOutput file, if one is given
             if(shellcmd -> rd_stdout){
-              int fd = open(shellcmd->rd_stdout, O_RDWR|O_CREAT,0666);
-              dup2(fd,1);
-              close(fd);
+               int fd = open(shellcmd->rd_stdout, O_RDWR|O_CREAT,0666);
+               dup2(fd,1);
+               close(fd);
             }
-
-            if(execvp(args[0],args) == -1){
-              printf("Command not found\n");
-            }
-            return 0;
-    default: if((shellcmd -> background) == 0){       
-               waitpid(pid,NULL,0 );                //If not a background-process, wait for child process to finish
-             }
-             return 0;
+         }
+         
+         if(execvp() == -1){
+            printf("Command not found\n");
+         }
+     }  
   }
+  
+  if(pid){
+     if((shellcmd -> background) == 0){       
+       waitpid(pid,NULL,0); 
+     }
+     return 0;
+  }
+  
+  return 0;
 }
 
 /* --- main loop of the simple shell --- */
