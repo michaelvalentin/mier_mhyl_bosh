@@ -56,7 +56,10 @@ int executeshellcmd (Shellcmd *shellcmd){
   
   //Reset i
   i = 0;
-  pid_t pid;
+  
+  //Setup variables
+  pid_t = pid;
+  int pipe_fd[2];
   
   while(cmdlist != NULL){
      i++;
@@ -76,6 +79,8 @@ int executeshellcmd (Shellcmd *shellcmd){
          //Check if this is the first command
          if(i != 1){
            //If not first, set StdInput to be the pipe of before
+           dup2(pipe_fd[1],0); //Use the pipe from before. Set command input to pipe output.
+           close(pipe_fd[1]); //Close the pipe output.
          }else{
            //If first, set StdInput to StdInput file, if one is given
            if(shellcmd -> rd_stdin){
@@ -87,7 +92,10 @@ int executeshellcmd (Shellcmd *shellcmd){
      
          //Check if this is the last command
          if(i != cmd_count){
-            //If not last, set StdOut to a new pipe   
+            //If not last, set StdOut to a new pipe  
+            pipe(pipe_fd); //Make a new pipe
+            dup2(pipe_fd[0],1); //Set pipe input to command output
+            close(pipe_fd[0]); //Close pipe input
          }else{
             //If last, set StdOutput to StdOutput file, if one is given
             if(shellcmd -> rd_stdout){
