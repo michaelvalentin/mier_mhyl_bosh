@@ -68,7 +68,8 @@ int executeshellcmd (Shellcmd *shellcmd){
 
   while(cmdlist != NULL){
      i++;
-     char **cmd = cmdlist->cmd;
+     char **cmd = cmdlist->cmd;     
+     printf("NOW DOING CMD-%d : %s \n",i,cmd[0]);
      cmdlist = cmdlist->next;
      
      //Is this the exit command?
@@ -90,12 +91,13 @@ int executeshellcmd (Shellcmd *shellcmd){
      switch(child_pids[i]){
        case -1 : printf("ERROR: Failed to fork."); return 0;
        case 0 : //Child process
+        
          printf("Reaching child process for #%s#\n",cmd[0]);
          //Check if this is the first command
          if(i != 1){
-           //If not first, set StdInput to be the pipe of before
-           dup2(pipe_fd[i-1][0],1); //Use the pipe from before. Set command input to pipe output.
-           close(pipe_fd[i-1][0]); //Close the pipe output.
+           //If not first, set StdInput to be the output of the pipe of the previous command
+           dup2(pipe_fd[i-1][1],0); //Use the pipe from before. Set command input to pipe output.
+           close(pipe_fd[i-1][1]); //Close the pipe output.
          }else{
            //If first (last command from left), set StdOutput to StdOutput file, if one is given
             if(shellcmd -> rd_stdout){
@@ -110,8 +112,8 @@ int executeshellcmd (Shellcmd *shellcmd){
          //Check if this is the last command
          if(i != cmd_count){
             //If not last, set StdOut to the newly made pipe  
-            dup2(pipe_fd[i][1],0); //Set pipe input to command output
-            close(pipe_fd[i][1]); //Close pipe input
+            // dup2(pipe_fd[i][0],1); //Set pipe input to command output //OG DEN GAAR I STAA HER!
+            close(pipe_fd[i][0]); //Close pipe input
          }else{
            //If last (first command from left), set StdInput to StdInput file, if one is given
            if(shellcmd -> rd_stdin){
@@ -122,21 +124,17 @@ int executeshellcmd (Shellcmd *shellcmd){
          }
 
          printf("RUNNING COMMAND: %s\n",cmd[0]);
-         if(execvp(cmd[0],cmd) == -1){
-            printf("Command not found\n");
-         }
-         return 0;
+         //if(execvp(cmd[0],cmd) == -1){ //DEN GAAR I STAA HER!
+         //   printf("Command not found\n");
+         //}
+         //NOTE: Naar Execvp kaldes, doer child. Den proever at lave wc -w som gaar i staa...
      } 
      if(child_pids[i]){
-     if((shellcmd -> background) == 0){       
-       waitpid(child_pids[i],NULL,0); 
+       if((shellcmd -> background) == 0){       
+         waitpid(child_pids[i],NULL,0); 
+       }
      }
-     return 0;
   }
-  }
-  
-  
-  
   return 0;
 }
 
@@ -152,7 +150,7 @@ int main(int argc, char* argv[]) {
   if (gethostname(hostname)) {
 
     /* parse commands until exit or ctrl-c */
-    signal(SIGINT, InteruptHandler);
+    //signal(SIGINT, InteruptHandler);
     while (!terminate) {
       printf("%s", hostname);
       if (cmdline = readline(":# ")) {
