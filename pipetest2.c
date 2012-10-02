@@ -72,8 +72,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-char *cmd1[] = { "/bin/ls", "-al", "/", 0 };
-char *cmd2[] = { "/usr/bin/tr", "a-z", "A-Z", 0 };
+char *cmd1[] = { "ls", 0 };
+char *cmd2[] = { "cat", 0 };
 
 void runsource(int pfd[]);
 void rundest(int pfd[]);
@@ -90,8 +90,8 @@ main(int argc, char **argv)
 	rundest(fd);
 	close(fd[0]); close(fd[1]); 	/* this is important! close both file descriptors on the pipe */
 
-	while ((pid = wait(&status)) != -1)	/* pick up all the dead children */
-		fprintf(stderr, "process %d exits\n", pid);
+	//while ((pid = wait(&status)) != -1)	/* pick up all the dead children */
+	//	fprintf(stderr, "process %d exits\n", pid);*/
 	exit(0);
 }
 
