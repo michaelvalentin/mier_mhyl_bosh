@@ -14,10 +14,9 @@ int main(void){
   char *argv[] = {"ls",0};
   char *argv2[] = {"cat",0};
 
+  pipe(fd);
+  
   pid = fork();
-  if(pipe(fd)< 0){
-    printf("Pipe failed"); return EXIT_FAILURE;
-  }
 
   switch(pid){
     case -1 : printf("Error in fork!\n"); return EXIT_FAILURE;
