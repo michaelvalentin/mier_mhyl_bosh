@@ -116,7 +116,7 @@ int executeshellcmd (Shellcmd *shellcmd){
     pid[i] = fork(); // FORK
     switch(pid[i]){
       case -1 : //Error!
-        printf("Error forking!");
+        printf("Error forking!\n");
       case 0 : //Child
         child_pid = getpid(); //Get the child pid
         setpgid(child_pid, parent_pgid); //Add child pid to process group of parent
@@ -174,3 +174,4 @@ int main(int argc, char* argv[]) {
   }
   return EXIT_SUCCESS;
 }
+
