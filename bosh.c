@@ -44,99 +44,81 @@ void InteruptHandler(int signal){
   
 }
 
+/* --- execute a command */
+int executecommand(char **cmd, int fdin, int fdout){
+  printf("Command run: %s with file descriptors in(%d) out(%d)\n",cmd[0],fdin,fdout);
+  if(fdin!=0)  dup2(fdin,0);
+  if(fdout!=0) dup2(fdout,1);
+  close(fdin);
+  close(fdout);
+  execvp(cmd[0],cmd);
+  printf("Command \"%s\" was not found!\n",cmd[0]);
+  exit(0);
+}
+
+/* --- get std out file descriptor ---*/
+int get stdoutfd(Shellcmd *shellcmd){
+  if(shellcmd->rd_stdout){
+
+  }else{
+    return 0;
+  }
+}
+
+/* --- get std out file descript ---*/
+int getstdinfd(Shellcmd *shellcmd){
+  if(shellcmd->rd_stdin){
+    
+  }else{
+    return 0;
+  }
+}
+
 /* --- execute a shell command --- */
 int executeshellcmd (Shellcmd *shellcmd){
   printshellcmd(shellcmd);
-  
   Cmd *cmdlist = shellcmd->the_cmds;
-  Cmd *cmdlist2 = shellcmd->the_cmds;
-  int cmd_count;
-  int i = 0;
-  
-  //Find out the number of commands
-  while(cmdlist2 != NULL){
-     i++;
-     cmdlist2 = cmdlist2->next;
-  }
-  cmd_count = i;
-  
-  //Reset i
-  i = 0;
-  
-  //Setup variables
-  int pipe_fd[cmd_count][2];
+  int first = 1;
+  int fdin = 0;
+  int fdout = 0;
 
   while(cmdlist != NULL){
-     i++;
-     char **cmd = cmdlist->cmd;     
-     printf("NOW DOING CMD-%d : %s \n",i,cmd[0]);
-     cmdlist = cmdlist->next;
-     
-     //Is this the exit command?
-     if(strcmp(cmd[0],"exit")==0){
-       return 1;
-     }
+    char **cmd = cmdlist->cmd;
+    printf("Command reached:%.s\n",cmd[0]);
+    cmdlist = cmdlist->next;
 
-     if(i != cmd_count){
-       if(pipe(pipe_fd[i]) < 0){ //Make a new pipe;
-         printf("Pipe failed\n");
-         return 0;
-       }else{
-         printf("PIPPING SUCCESS %d \n",i);
-       }
-     }
+    fdout = fdin; //We want to set the output to the input from the previous command.
+    //WERE TO GO NOW : THE PIPE IS DESCRIBED BY TWO DIGITS!!! 
 
-     child_pids[i] = fork();
-  
-     switch(child_pids[i]){
-       case -1 : printf("ERROR: Failed to fork."); return 0;
-       case 0 : //Child process
-        
-         printf("Reaching child process for #%s#\n",cmd[0]);
-         //Check if this is the first command
-         if(i != 1){
-           //If not first, set StdInput to be the output of the pipe of the previous command
-           dup2(pipe_fd[i-1][1],0); //Use the pipe from before. Set command input to pipe output.
-           close(pipe_fd[i-1][1]); //Close the pipe output.
-         }else{
-           //If first (last command from left), set StdOutput to StdOutput file, if one is given
-            if(shellcmd -> rd_stdout){
-               int fd = open(shellcmd->rd_stdout, O_RDWR|O_CREAT,0666);
-               dup2(fd,1);
-               close(fd);
-            }
+    if(first != 1){
+      //Setup a pipe for output...
+    }else{
+      //setup a standard output...
+      fdout = getstdinfd(shellcmd);
+    }
 
-         }
-     
-         printf("Reaching2 child process for #%s#\n",cmd[0]);
-         //Check if this is the last command
-         if(i != cmd_count){
-            //If not last, set StdOut to the newly made pipe  
-            // dup2(pipe_fd[i][0],1); //Set pipe input to command output //OG DEN GAAR I STAA HER!
-            close(pipe_fd[i][0]); //Close pipe input
-         }else{
-           //If last (first command from left), set StdInput to StdInput file, if one is given
-           if(shellcmd -> rd_stdin){
-             int fd = open(shellcmd->rd_stdin, O_RDONLY);
-             dup2(fd,0);
-             close(fd);
-           }
-         }
+    if(cmdlist != NULL){
+      //Setup a pipe for input...
+    }else{
+      //Setup a standard input
+      fd
+    }
 
-         printf("RUNNING COMMAND: %s\n",cmd[0]);
-         //if(execvp(cmd[0],cmd) == -1){ //DEN GAAR I STAA HER!
-         //   printf("Command not found\n");
-         //}
-         //NOTE: Naar Execvp kaldes, doer child. Den proever at lave wc -w som gaar i staa...
-     } 
-     if(child_pids[i]){
-       if((shellcmd -> background) == 0){       
-         waitpid(child_pids[i],NULL,0); 
-       }
-     }
+    first = 0;
+
+    int pid = fork();
+    switch(pid){
+      case -1 : //Error!
+        printf("Error forking!");
+      case 0 : //Child
+        executecommand(cmd, fdin, fdout); //Execute the command as the children process
+      default : //Parent
+        if(!shellcmd->background) waitpid(pid,NULL,0); //If not a bg process, wait for kid to finish
+    }
   }
   return 0;
 }
+
 
 /* --- main loop of the simple shell --- */
 int main(int argc, char* argv[]) {

@@ -13,21 +13,9 @@ int main(void){
 
   char *argv[] = {"ls",0};
   char *argv2[] = {"cat",0};
-
-  pipe(fd);
+ 
+  pipe(fd); 
   
-  pid = fork();
-
-  switch(pid){
-    case -1 : printf("Error in fork!\n"); return EXIT_FAILURE;
-    case 0 :
-      dup2(fd[1],1);
-      close(fd[0]);
-      execvp(argv[0],argv);
-    default : 
-      break;
-  }
-
   pid2 = fork();
 
   switch(pid2){
@@ -39,6 +27,20 @@ int main(void){
     default :
       break;
   }
+
+  
+  pid = fork();
+
+  switch(pid){
+    case -1 : printf("Error in fork!\n"); return EXIT_FAILURE;
+    case 0 :
+      dup2(fd[1],1);
+      close(fd[0]);
+      execvp(argv[0],argv);
+    default :
+      break;
+  }
+
 
   close(fd[0]); close(fd[1]);
 
