@@ -19,6 +19,8 @@
 /* --- symbolic constants --- */
 #define HOSTNAMEMAX 100
 
+pid_t parent_pgid;
+
 /* --- use the /proc filesystem to obtain the hostname --- */
 char *gethostname(char *hostname)
 {
@@ -85,8 +87,10 @@ int executeshellcmd (Shellcmd *shellcmd){
   int p_fd[(cmd_count-1)][2];
   int pid[cmd_count];
 
-  if(strcmp(cmdlist->cmd[0],"exit")==0 && cmd_count == 1)
+  if(strcmp(cmdlist->cmd[0],"exit")==0 && cmd_count == 1){
+    killpg(parent_pgid, SIGINT);
     return 1;
+  }
 
   while(cmdlist != NULL){
     char **cmd = cmdlist->cmd;
@@ -94,6 +98,7 @@ int executeshellcmd (Shellcmd *shellcmd){
     cmdlist = cmdlist->next;
     int fdin;
     int fdout;    
+    pid_t child_pid;    
 
     if(i>1){
       close(p_fd[i-2][0]); close(p_fd[i-2][1]);
@@ -121,6 +126,8 @@ int executeshellcmd (Shellcmd *shellcmd){
       case -1 : //Error!
         printf("Error forking!");
       case 0 : //Child
+        child_pid = getpid();
+        setpgid(child_pid, parent_pgid);
         if(i>0) close(p_fd[i-1][0]);
         if(cmdlist != NULL) close(p_fd[i][1]);
         executecommand(cmd, fdin, fdout); //Execute the command as the children process
@@ -136,6 +143,7 @@ int executeshellcmd (Shellcmd *shellcmd){
 
   for(i=0;i<cmd_count;i++) 
     if(!shellcmd->background) waitpid(pid[i],NULL,0);
+
   return 0;
 }
 
@@ -148,6 +156,9 @@ int main(int argc, char* argv[]) {
   char hostname[HOSTNAMEMAX];
   int terminate = 0;
   Shellcmd shellcmd;
+
+  parent_pgid = getpid();
+  setsid();  
 
   if (gethostname(hostname)) {
 
