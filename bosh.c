@@ -49,8 +49,6 @@ int executecommand(char **cmd, int fdin, int fdout){
   printf("Command run: %s with file descriptors in(%d) out(%d)\n",cmd[0],fdin,fdout);
   if(fdin!=-1)  dup2(fdin,0);
   if(fdout!=-1) dup2(fdout,1);
-  close(fdin);
-  close(fdout);
   execvp(cmd[0],cmd);
   printf("Command \"%s\" was not found!\n",cmd[0]);
   exit(0);
@@ -96,7 +94,6 @@ int executeshellcmd (Shellcmd *shellcmd){
     last_p_fd[0] = p_fd[0];
     last_p_fd[1] = p_fd[1];
     pipe(p_fd);
-    close(p_fd[0]); close(p_fd[1]);
 
     if(cmdlist != NULL){
       //Setup a pipe for input...
@@ -115,7 +112,7 @@ int executeshellcmd (Shellcmd *shellcmd){
     }
 
     int pid = fork();
-    if(first_pid = -1) first_pid = pid;
+    if(first_pid = -1 && pid!=0) first_pid = pid;
     switch(pid){
       case -1 : //Error!
         printf("Error forking!");
