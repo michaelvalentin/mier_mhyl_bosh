@@ -1,9 +1,4 @@
-/* 
-
-   bosh.c : BOSC shell 
-
-*/
-
+/*   bosh.c : BOSC shell   */
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -25,12 +20,10 @@ pid_t parent_pgid;
 char *gethostname(char *hostname)
 {
   FILE* file = fopen("/proc/sys/kernel/hostname","r");
-  if(file == NULL){
-    return NULL;
-  }
+  if(file == NULL) return NULL;
   int ch = getc(file);
   int length = 0;
-  while(ch != '\n' && ch != EOF) {
+  while(ch != '\n' && ch != EOF) { //Read until end of line or file
     hostname[length] = ch;
     ch = getc(file);
     length++;
@@ -39,18 +32,18 @@ char *gethostname(char *hostname)
   return hostname;
 }
 
+/* --- InterruptHandler that does nothing --- */
 void InterruptIgnore(int signal){
   /* Do NOTHING at all.. */
 }
 
-/* --- execute a command */
+/* --- execute a command --- */
 void executecommand(char **cmd, int fdin, int fdout){
-  printf("Command run: %s with file descriptors in(%d) out(%d)\n",cmd[0],fdin,fdout);
-  dup2(fdin,0);
-  dup2(fdout,1);
+  dup2(fdin,0); //Set the input of this command
+  dup2(fdout,1); //Set the output of this command
   execvp(cmd[0],cmd);
   printf("Command \"%s\" was not found!\n",cmd[0]);
-  exit(0); //Important - we must exit, to prevent the program from an unwanted, extra, parallel execution!
+  exit(0); //Important - we must exit, to prevent the program from an unwanted, extra, parallel execution in child process!
 }
 
 /* --- get std in file descriptor ---*/
@@ -86,65 +79,66 @@ int executeshellcmd (Shellcmd *shellcmd){
   int i = 0;
   int p_fd[(cmd_count-1)][2];
   int pid[cmd_count];
-
+  
+  //Detect exit command (only if first and only) and exit
   if(strcmp(cmdlist->cmd[0],"exit")==0 && cmd_count == 1){
-    killpg(parent_pgid, SIGINT);
-    return 1;
+    killpg(parent_pgid, SIGINT); //We interrupt the child processes to stop them safely
+    return 1; //Returning 1 will exit the bosh shell
   }
 
+  //Iterate over the commands to run them
   while(cmdlist != NULL){
+    //First setup all necessary variables
     char **cmd = cmdlist->cmd;
-    printf("Command reached: %s\n",cmd[0]);
     cmdlist = cmdlist->next;
-    int fdin;
-    int fdout;    
+    int fdin; int fdout;    
     pid_t child_pid;    
 
+    //If third iteration or more, close the pipe from two iterations back completely.
+    //We definitely don't need it anymore.
     if(i>1){
       close(p_fd[i-2][0]); close(p_fd[i-2][1]);
     }
 
-    if(cmdlist == NULL){ //Last command from right - first from left
-      //Setup a standard input
+    if(cmdlist == NULL){ //Last command from right - setup the std input
       fdin = getstdinfd(shellcmd);
-    }else{
-      //Setup a pipe to get input from...
+    }else{ //Else setup a pipe to read the input from
       pipe(p_fd[i]);
       fdin = p_fd[i][0];
     }
 
-    if(i == 0){ //First command from right - last from left
-      //setup a standard output...
+    if(i == 0){ //First command from right - setup the std output
       fdout = getstdoutfd(shellcmd);
-    }else{
-      //Write output to previous pipe...
+    }else{ //Else write the output to the previous pipe
       fdout = p_fd[i-1][1];
     }
 
-    pid[i] = fork(); //##### FORK #####
+    pid[i] = fork(); // FORK
     switch(pid[i]){
       case -1 : //Error!
         printf("Error forking!");
       case 0 : //Child
-        child_pid = getpid();
-        setpgid(child_pid, parent_pgid);
-        if(i>0) close(p_fd[i-1][0]);
-        if(cmdlist != NULL) close(p_fd[i][1]);
-        executecommand(cmd, fdin, fdout); //Execute the command as the children process
+        child_pid = getpid(); //Get the child pid
+        setpgid(child_pid, parent_pgid); //Add child pid to process group of parent
+        if(i>0) close(p_fd[i-1][0]); //If not first, close the 0 end of previous pipe
+        if(cmdlist != NULL) close(p_fd[i][1]); //If not last, close the 1 end of pipe
+        executecommand(cmd, fdin, fdout); //Execute the command
       default : //Parent
-        break;
+        break; //Does nothing.
     }
     i++;
   }
   
+  //Make sure that all pipes are closed in parent process
   for(i=0; i<(cmd_count-1);i++){ 
     close(p_fd[i][0]); close(p_fd[i][1]);
   }
 
+  //If not a background process, we must wait for all children
   for(i=0;i<cmd_count;i++) 
     if(!shellcmd->background) waitpid(pid[i],NULL,0);
 
-  return 0;
+  return 0; //Success!
 }
 
 
@@ -156,12 +150,12 @@ int main(int argc, char* argv[]) {
   char hostname[HOSTNAMEMAX];
   int terminate = 0;
   Shellcmd shellcmd;
-
+  
+  //Save the parent pid and start a new session (process group)
   parent_pgid = getpid();
   setsid();  
 
   if (gethostname(hostname)) {
-
     /* parse commands until exit or ctrl-c */
     signal(SIGINT, InterruptIgnore);
     while (!terminate) {
@@ -180,4 +174,3 @@ int main(int argc, char* argv[]) {
   }
   return EXIT_SUCCESS;
 }
-
