@@ -40,8 +40,8 @@ char *gethostname(char *hostname)
   return hostname;
 }
 
-void InteruptHandler(int signal){
-  
+void InterruptIgnore(int signal){
+  /* Do NOTHING at all.. */
 }
 
 /* --- execute a command */
@@ -49,10 +49,6 @@ void executecommand(char **cmd, int fdin, int fdout){
   printf("Command run: %s with file descriptors in(%d) out(%d)\n",cmd[0],fdin,fdout);
   dup2(fdin,0);
   dup2(fdout,1);
-  //printf("Close fdin: %d\n",fdin);
-  //if(fdin>1) close(fdin);
-  //printf("Close fdout: %d\n",fdout);
-  //if(fdout>1) close(fdout);
   execvp(cmd[0],cmd);
   printf("Command \"%s\" was not found!\n",cmd[0]);
   exit(0); //Important - we must exit, to prevent the program from an unwanted, extra, parallel execution!
@@ -91,6 +87,9 @@ int executeshellcmd (Shellcmd *shellcmd){
   int i = 0;
   int p_fd[(cmd_count-1)][2];
   int pid[cmd_count];
+
+  if(strcmp(cmdlist->cmd[0],"exit")==0 && cmd_count == 1)
+    return 1;
 
   while(cmdlist != NULL){
     char **cmd = cmdlist->cmd;
@@ -134,7 +133,9 @@ int executeshellcmd (Shellcmd *shellcmd){
     i++;
   }
   
-  close(p_fd[cmd_count-1][0]); close(p_fd[cmd_count-1][1]);
+  for(i=0; i<(cmd_count-1);i++){ 
+    close(p_fd[i][0]); close(p_fd[i][1]);
+  }
 
   for(i=0;i<cmd_count;i++) 
     if(!shellcmd->background) waitpid(pid[i],NULL,0);
@@ -154,7 +155,7 @@ int main(int argc, char* argv[]) {
   if (gethostname(hostname)) {
 
     /* parse commands until exit or ctrl-c */
-    //signal(SIGINT, InteruptHandler);
+    signal(SIGINT, InterruptIgnore);
     while (!terminate) {
       printf("%s", hostname);
       if (cmdline = readline(":# ")) {
