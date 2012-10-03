@@ -45,13 +45,17 @@ void InteruptHandler(int signal){
 }
 
 /* --- execute a command */
-int executecommand(char **cmd, int fdin, int fdout){
+void executecommand(char **cmd, int fdin, int fdout){
   printf("Command run: %s with file descriptors in(%d) out(%d)\n",cmd[0],fdin,fdout);
-  if(fdin!=-1)  dup2(fdin,0);
-  if(fdout!=-1) dup2(fdout,1);
+  dup2(fdin,0);
+  dup2(fdout,1);
+  //printf("Close fdin: %d\n",fdin);
+  //if(fdin>1) close(fdin);
+  //printf("Close fdout: %d\n",fdout);
+  //if(fdout>1) close(fdout);
   execvp(cmd[0],cmd);
   printf("Command \"%s\" was not found!\n",cmd[0]);
-  exit(0);
+  exit(0); //Important - we must exit, to prevent the program from an unwanted, extra, parallel execution!
 }
 
 /* --- get std in file descriptor ---*/
@@ -59,7 +63,7 @@ int getstdinfd(Shellcmd *shellcmd){
   if(shellcmd->rd_stdin){
     return open(shellcmd->rd_stdin,O_RDONLY);
   }else{
-    return -1;
+    return 0;
   }
 }
 
@@ -68,61 +72,72 @@ int getstdoutfd(Shellcmd *shellcmd){
   if(shellcmd->rd_stdout){
     return open(shellcmd->rd_stdout, O_RDWR|O_CREAT,0666);
   }else{
-    return -1;
+    return 1;
   }
+}
+
+/* --- count commands --- */
+int countcmds(Cmd *cmdlist){
+  int i = 1;
+  while((cmdlist = cmdlist->next) != NULL) i++;
+  return i;
 }
 
 /* --- execute a shell command --- */
 int executeshellcmd (Shellcmd *shellcmd){
-  printshellcmd(shellcmd);
+  //printshellcmd(shellcmd);
   Cmd *cmdlist = shellcmd->the_cmds;
+  int cmd_count = countcmds(cmdlist);
   int i = 0;
-  int p_fd[2] = {-1,-1};
-  int last_p_fd[2] = {-1,-1};
-  int first_pid = -1;
+  int p_fd[(cmd_count-1)][2];
+  int pid[cmd_count];
 
   while(cmdlist != NULL){
     char **cmd = cmdlist->cmd;
-    printf("Command reached:%.s\n",cmd[0]);
+    printf("Command reached: %s\n",cmd[0]);
     cmdlist = cmdlist->next;
+    int fdin;
+    int fdout;    
 
-    i++;
+    if(i>1){
+      close(p_fd[i-2][0]); close(p_fd[i-2][1]);
+    }
 
-    int fdin = -1;
-    int fdout = -1;
-
-    last_p_fd[0] = p_fd[0];
-    last_p_fd[1] = p_fd[1];
-    pipe(p_fd);
-
-    if(cmdlist != NULL){
-      //Setup a pipe for input...
-      fdin = p_fd[0];
-    }else{
+    if(cmdlist == NULL){ //Last command from right - first from left
       //Setup a standard input
       fdin = getstdinfd(shellcmd);
+    }else{
+      //Setup a pipe to get input from...
+      pipe(p_fd[i]);
+      fdin = p_fd[i][0];
     }
 
-    if(i != 1){
-      //Setup output to previous pipe...
-      fdout = last_p_fd[1];
-    }else{
+    if(i == 0){ //First command from right - last from left
       //setup a standard output...
       fdout = getstdoutfd(shellcmd);
+    }else{
+      //Write output to previous pipe...
+      fdout = p_fd[i-1][1];
     }
 
-    int pid = fork();
-    if(first_pid = -1 && pid!=0) first_pid = pid;
-    switch(pid){
+    pid[i] = fork(); //##### FORK #####
+    switch(pid[i]){
       case -1 : //Error!
         printf("Error forking!");
       case 0 : //Child
+        if(i>0) close(p_fd[i-1][0]);
+        if(cmdlist != NULL) close(p_fd[i][1]);
         executecommand(cmd, fdin, fdout); //Execute the command as the children process
       default : //Parent
         break;
     }
+    i++;
   }
-  if(!shellcmd->background) waitpid(first_pid,NULL,0); //If not a bg process, wait for kid to finish
+  
+  close(p_fd[cmd_count-1][0]); close(p_fd[cmd_count-1][1]);
+
+  for(i=0;i<cmd_count;i++) 
+    if(!shellcmd->background) waitpid(pid[i],NULL,0);
   return 0;
 }
 

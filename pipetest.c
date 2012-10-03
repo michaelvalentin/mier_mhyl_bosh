@@ -12,7 +12,7 @@ int main(void){
   int fd[2];
 
   char *argv[] = {"ls",0};
-  char *argv2[] = {"cat",0};
+  char *argv2[] = {"wc","-w",0};
  
   pipe(fd); 
   
@@ -44,8 +44,11 @@ int main(void){
 
   close(fd[0]); close(fd[1]);
 
-  //waitpid(pid, NULL, 0);
-  //waitpid(pid2, NULL, 0);
+  waitpid(pid, NULL, 0);
+  waitpid(pid2, NULL, 0);
+  
+  char *argv3[] = {"ps",0};
+  execvp(argv3[0],argv3);
 
   exit(0);
 }
