@@ -18,9 +18,6 @@
 
 /* --- symbolic constants --- */
 #define HOSTNAMEMAX 100
-#define MAX_CMDS 10
-
-pid_t child_pids[MAX_CMDS];
 
 /* --- use the /proc filesystem to obtain the hostname --- */
 char *gethostname(char *hostname)
