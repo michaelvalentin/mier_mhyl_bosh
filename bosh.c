@@ -47,8 +47,8 @@ void InteruptHandler(int signal){
 /* --- execute a command */
 int executecommand(char **cmd, int fdin, int fdout){
   printf("Command run: %s with file descriptors in(%d) out(%d)\n",cmd[0],fdin,fdout);
-  if(fdin!=0)  dup2(fdin,0);
-  if(fdout!=0) dup2(fdout,1);
+  if(fdin!=-1)  dup2(fdin,0);
+  if(fdout!=-1) dup2(fdout,1);
   close(fdin);
   close(fdout);
   execvp(cmd[0],cmd);
@@ -56,21 +56,21 @@ int executecommand(char **cmd, int fdin, int fdout){
   exit(0);
 }
 
-/* --- get std out file descriptor ---*/
-int get stdoutfd(Shellcmd *shellcmd){
-  if(shellcmd->rd_stdout){
-
+/* --- get std in file descriptor ---*/
+int getstdinfd(Shellcmd *shellcmd){
+  if(shellcmd->rd_stdin){
+    return open(shellcmd->rd_stdin,O_RDONLY);
   }else{
-    return 0;
+    return -1;
   }
 }
 
 /* --- get std out file descript ---*/
-int getstdinfd(Shellcmd *shellcmd){
-  if(shellcmd->rd_stdin){
-    
+int getstdoutfd(Shellcmd *shellcmd){
+  if(shellcmd->rd_stdout){
+    return open(shellcmd->rd_stdout, O_RDWR|O_CREAT,0666);
   }else{
-    return 0;
+    return -1;
   }
 }
 
@@ -78,44 +78,54 @@ int getstdinfd(Shellcmd *shellcmd){
 int executeshellcmd (Shellcmd *shellcmd){
   printshellcmd(shellcmd);
   Cmd *cmdlist = shellcmd->the_cmds;
-  int first = 1;
-  int fdin = 0;
-  int fdout = 0;
+  int i = 0;
+  int p_fd[2] = {-1,-1};
+  int last_p_fd[2] = {-1,-1};
+  int first_pid = -1;
 
   while(cmdlist != NULL){
     char **cmd = cmdlist->cmd;
     printf("Command reached:%.s\n",cmd[0]);
     cmdlist = cmdlist->next;
 
-    fdout = fdin; //We want to set the output to the input from the previous command.
-    //WERE TO GO NOW : THE PIPE IS DESCRIBED BY TWO DIGITS!!! 
+    i++;
 
-    if(first != 1){
-      //Setup a pipe for output...
-    }else{
-      //setup a standard output...
-      fdout = getstdinfd(shellcmd);
-    }
+    int fdin = -1;
+    int fdout = -1;
+
+    last_p_fd[0] = p_fd[0];
+    last_p_fd[1] = p_fd[1];
+    pipe(p_fd);
+    close(p_fd[0]); close(p_fd[1]);
 
     if(cmdlist != NULL){
       //Setup a pipe for input...
+      fdin = p_fd[0];
     }else{
       //Setup a standard input
-      fd
+      fdin = getstdinfd(shellcmd);
     }
 
-    first = 0;
+    if(i != 1){
+      //Setup output to previous pipe...
+      fdout = last_p_fd[1];
+    }else{
+      //setup a standard output...
+      fdout = getstdoutfd(shellcmd);
+    }
 
     int pid = fork();
+    if(first_pid = -1) first_pid = pid;
     switch(pid){
       case -1 : //Error!
         printf("Error forking!");
       case 0 : //Child
         executecommand(cmd, fdin, fdout); //Execute the command as the children process
       default : //Parent
-        if(!shellcmd->background) waitpid(pid,NULL,0); //If not a bg process, wait for kid to finish
+        break;
     }
   }
+  if(!shellcmd->background) waitpid(first_pid,NULL,0); //If not a bg process, wait for kid to finish
   return 0;
 }
 
